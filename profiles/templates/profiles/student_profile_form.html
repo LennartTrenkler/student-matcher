@@ -41,30 +41,6 @@
                         <p class="mt-3 text-muted small mb-0">
                             All time ranges are in UTC.
                         </p>
-
-                        <hr class="mt-4">
-
-                        <div class="mt-2">
-                            {% if is_teacher %}
-                                <p class="text-muted mb-2">Teacher tools</p>
-
-                                <a href="{% url 'export_profiles_csv' %}"
-                                   class="btn btn-sm btn-outline-primary me-2">
-                                    Download CSV
-                                </a>
-
-                                <a href="{% url 'clear_profiles' %}"
-                                   class="btn btn-sm btn-outline-danger">
-                                    Clear all profiles
-                                </a>
-                            {% endif %}
-
-                            <p class="mt-3">
-                                <a href="{% url 'teacher_login' %}" class="link-secondary small">
-                                    Teacher login
-                                </a>
-                            </p>
-                        </div>
                     </form>
                 </div>
             </div>
