@@ -1,66 +1,65 @@
 from django.db import models
 
-# Create your models here.
-from django.db import models
+
+class Task(models.Model):
+    name = models.CharField(max_length=200)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.name
+
+
+COMMITMENT_CHOICES = [
+    ("minimal", "Minimal"),
+    ("regular", "Regular"),
+    ("high", "High"),
+]
+
+EXPERIENCE_CHOICES = [
+    ("beginner", "Beginner"),
+    ("intermediate", "Intermediate"),
+    ("advanced", "Advanced"),
+]
+
+LEAD_CHOICES = [
+    ("lead", "Lead"),
+    ("support", "Support"),
+]
+
+SEX_CHOICES = [
+    ("female", "Female"),
+    ("male", "Male"),
+    ("other", "Other / prefer not to say"),
+]
+
 
 class StudentProfile(models.Model):
-    # Identification
     name = models.CharField(max_length=200)
 
-    # Availability: multiple time ranges per day
-    # Store as text for now → easier to implement, flexible for future changes
-    availability_monday = models.TextField(blank=True)
-    availability_tuesday = models.TextField(blank=True)
-    availability_wednesday = models.TextField(blank=True)
-    availability_thursday = models.TextField(blank=True)
-    availability_friday = models.TextField(blank=True)
-    availability_saturday = models.TextField(blank=True)
-    availability_sunday = models.TextField(blank=True)
+    availability_monday = models.CharField(max_length=200, blank=True)
+    availability_tuesday = models.CharField(max_length=200, blank=True)
+    availability_wednesday = models.CharField(max_length=200, blank=True)
+    availability_thursday = models.CharField(max_length=200, blank=True)
+    availability_friday = models.CharField(max_length=200, blank=True)
+    availability_saturday = models.CharField(max_length=200, blank=True)
+    availability_sunday = models.CharField(max_length=200, blank=True)
 
-    # Commitment level
     commitment = models.CharField(
-        max_length=20,
-        choices=[
-            ("minimal", "Minimal"),
-            ("regular", "Regular"),
-            ("high", "High"),
-        ]
+        max_length=20, choices=COMMITMENT_CHOICES, blank=True
     )
-
-    # Background
     educational_background = models.CharField(max_length=200, blank=True)
     professional_background = models.CharField(max_length=200, blank=True)
-
-    # Heterogeneous criteria
-    age = models.IntegerField(null=True, blank=True)
-    sex = models.CharField(
-        max_length=20,
-        choices=[
-            ("male", "Male"),
-            ("female", "Female"),
-            ("other", "Other"),
-        ],
-        blank=True
-    )
-
+    age = models.PositiveIntegerField(null=True, blank=True)
+    sex = models.CharField(max_length=20, choices=SEX_CHOICES, blank=True)
     experience_level = models.CharField(
-        max_length=20,
-        choices=[
-            ("beginner", "Beginner"),
-            ("intermediate", "Intermediate"),
-            ("advanced", "Advanced"),
-        ],
-        blank=True
+        max_length=20, choices=EXPERIENCE_CHOICES, blank=True
+    )
+    lead_preference = models.CharField(
+        max_length=20, choices=LEAD_CHOICES, blank=True
     )
 
-    lead_preference = models.CharField(
-        max_length=20,
-        choices=[
-            ("lead", "Lead"),
-            ("support", "Support")
-        ],
-        blank=True
-    )
+    # NEW: teacher-configurable tasks, multi-select on form
+    preferred_tasks = models.ManyToManyField(Task, blank=True)
 
     def __str__(self):
         return self.name

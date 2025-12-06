@@ -1,14 +1,15 @@
 import csv
 
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
-from django.conf import settings
 
 from .forms import StudentProfileForm, TIME_SLOT_CHOICES
 from .models import StudentProfile
 
 
 def student_profile_create(request):
+    """Main student input form."""
     if request.method == "POST":
         form = StudentProfileForm(request.POST)
         if form.is_valid():
@@ -17,43 +18,65 @@ def student_profile_create(request):
     else:
         form = StudentProfileForm()
 
-    return render(request, "profiles/student_profile_form.html", {"form": form})
+    is_teacher = request.session.get("teacher_ok", False)
+
+    return render(
+        request,
+        "profiles/student_profile_form.html",
+        {
+            "form": form,
+            "is_teacher": is_teacher,
+        },
+    )
 
 
 def profile_thanks(request):
-    return render(request, "profiles/thanks.html")
+    """Simple thank-you page after submission."""
+    is_teacher = request.session.get("teacher_ok", False)
+    return render(request, "profiles/thanks.html", {"is_teacher": is_teacher})
 
 
-# ---------- teacher auth ----------
+# ---------------------------------------------------------------------
+# Teacher authentication
+# ---------------------------------------------------------------------
+
 
 def teacher_login(request):
+    """Password-based login for teacher actions."""
     error = None
+
     if request.method == "POST":
         password = request.POST.get("password", "")
         if password == settings.TEACHER_PASSWORD:
             request.session["teacher_ok"] = True
-            return redirect("teacher_tools")
+            # redirect back to form by default
+            next_url = request.GET.get("next") or "student_profile_create"
+            return redirect(next_url)
         else:
             error = "Wrong password."
+
     return render(request, "profiles/teacher_login.html", {"error": error})
 
 
-def _require_teacher(request):
-    if not request.session.get("teacher_ok"):
-        return False
-    return True
-
-
 def teacher_tools(request):
-    if not _require_teacher(request):
+    """
+    Legacy view; currently just redirects an authenticated teacher
+    back to the main form.
+    """
+    if not request.session.get("teacher_ok"):
         return redirect("teacher_login")
-    return render(request, "profiles/teacher_tools.html")
+    return redirect("student_profile_create")
 
 
-# ---------- CSV export and clear (protected) ----------
+# ---------------------------------------------------------------------
+# CSV export (teacher only)
+# ---------------------------------------------------------------------
+
 
 def export_profiles_csv(request):
-    if not _require_teacher(request):
+    """Download all student profiles as a CSV file (teacher only)."""
+    if not request.session.get("teacher_ok"):
+        # remember where to come back to after login
         return redirect("teacher_login")
 
     response = HttpResponse(content_type="text/csv")
@@ -91,18 +114,22 @@ def export_profiles_csv(request):
         "Sex",
         "Experience level",
         "Lead/support preference",
+        "Preferred tasks",
     ]
     writer.writerow(header)
 
     label_map = dict(TIME_SLOT_CHOICES)
 
     def has_slot(text, code):
+        """Return '1' if the given slot label is present in the text, else ''."""
         if not text:
             return ""
         label = label_map[code]
         return "1" if label in text else ""
 
     for p in StudentProfile.objects.all().order_by("name"):
+        preferred_tasks = ", ".join(t.name for t in p.preferred_tasks.all())
+
         row = [
             p.name,
             has_slot(p.availability_monday, "morning"),
@@ -133,19 +160,26 @@ def export_profiles_csv(request):
             p.sex,
             p.experience_level,
             p.lead_preference,
+            preferred_tasks,
         ]
         writer.writerow(row)
 
     return response
 
 
+# ---------------------------------------------------------------------
+# Clear all profiles (teacher only, with confirmation)
+# ---------------------------------------------------------------------
+
+
 def clear_profiles(request):
-    if not _require_teacher(request):
+    """Delete all StudentProfile entries (teacher only, with confirm page)."""
+    if not request.session.get("teacher_ok"):
         return redirect("teacher_login")
 
     if request.method == "POST":
         StudentProfile.objects.all().delete()
-        return redirect("teacher_tools")
+        return redirect("student_profile_create")
 
-    # safety: GET just shows a confirmation
+    # GET → render confirmation page
     return render(request, "profiles/confirm_clear.html")

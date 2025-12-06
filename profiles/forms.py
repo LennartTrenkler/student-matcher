@@ -1,26 +1,46 @@
 from django import forms
-from .models import StudentProfile
+from .models import StudentProfile, Task
 
 
+# Time slots (unchanged)
 TIME_SLOT_CHOICES = [
     ("morning", "Morning 06:00-12:00 (UTC)"),
     ("afternoon", "Afternoon 12:00-18:00 (UTC)"),
     ("evening", "Evening 18:00-24:00 (UTC)"),
 ]
 
+# NEW: educational background options
+EDUCATION_CHOICES = [
+    ("none_yet", "No degree yet / Bachelor in progress"),
+    ("bachelor_business", "Bachelor – Business / Management / Economics"),
+    ("bachelor_cs", "Bachelor – Computer Science / IT"),
+    ("bachelor_engineering", "Bachelor – Engineering"),
+    ("bachelor_social", "Bachelor – Social Sciences / Humanities"),
+    ("master_business", "Master – Business / Management / Economics"),
+    ("master_other", "Master – other field"),
+    ("other", "Other / different background"),
+]
+
+# NEW: professional background options
+PROFESSIONAL_CHOICES = [
+    ("none", "No professional experience yet"),
+    ("internship", "Internships only"),
+    ("working_student", "Working student / part-time job"),
+    ("industry_business", "Industry – Business / Management"),
+    ("industry_it", "Industry – IT / Software / Data"),
+    ("industry_other", "Industry – other field"),
+]
+
 
 def _join_slots(codes):
-    """
-    Convert list of selected slot codes into a readable string
-    using the labels defined in TIME_SLOT_CHOICES.
-    """
+    """Convert selected slot codes into a readable string."""
     label_map = dict(TIME_SLOT_CHOICES)
     labels = [label_map[c] for c in codes]
     return ", ".join(labels)
 
 
 class StudentProfileForm(forms.ModelForm):
-    # override availability fields with multi-select checkboxes
+    # Availability fields as multi-select checkboxes
     availability_monday = forms.MultipleChoiceField(
         required=False,
         choices=TIME_SLOT_CHOICES,
@@ -64,6 +84,37 @@ class StudentProfileForm(forms.ModelForm):
         label="Sunday availability (UTC)",
     )
 
+    # NEW: override age field – numbers only, 0–99
+    age = forms.IntegerField(
+        required=False,
+        min_value=0,
+        max_value=99,
+        label="Age",
+        widget=forms.NumberInput(attrs={"min": 0, "max": 99}),
+    )
+
+    # NEW: dropdown for educational background
+    educational_background = forms.ChoiceField(
+        required=False,
+        choices=EDUCATION_CHOICES,
+        label="Educational background",
+    )
+
+    # NEW: dropdown for professional background
+    professional_background = forms.ChoiceField(
+        required=False,
+        choices=PROFESSIONAL_CHOICES,
+        label="Professional background",
+    )
+
+    # Tasks from admin, multi-select
+    preferred_tasks = forms.ModelMultipleChoiceField(
+        queryset=Task.objects.filter(active=True),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Preferred tasks",
+    )
+
     class Meta:
         model = StudentProfile
         fields = [
@@ -82,10 +133,10 @@ class StudentProfileForm(forms.ModelForm):
             "sex",
             "experience_level",
             "lead_preference",
+            "preferred_tasks",
         ]
 
-    # convert selected codes → readable string for storage
-
+    # Clean methods to store availability as readable strings
     def clean_availability_monday(self):
         return _join_slots(self.cleaned_data["availability_monday"])
 
@@ -106,3 +157,12 @@ class StudentProfileForm(forms.ModelForm):
 
     def clean_availability_sunday(self):
         return _join_slots(self.cleaned_data["availability_sunday"])
+
+    # Extra safety: age validation (two digits)
+    def clean_age(self):
+        age = self.cleaned_data.get("age")
+        if age is None:
+            return age
+        if age < 0 or age > 99:
+            raise forms.ValidationError("Please enter an age between 0 and 99.")
+        return age
